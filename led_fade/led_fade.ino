@@ -13,21 +13,23 @@ void setup()
 
 void loop()
 {
-  val = digitalRead(BUTTON);  // read input and store
+//  val = digitalRead(BUTTON);  // read input and store
   
   // check whether the input is HIGH (button pressed)
   
 
   for (brightness=0; brightness <= 255; brightness++) {
     analogWrite(LED, brightness);  // turn LED on 
-    delay(5);
+    delay(20);
   }
   
-  if (brightness >= 255) {
-    for (brightness = 255; brightness > 0; brightness--) {
-      analogWrite(LED, brightness);
-      delay(5);
-    }    
-  }
+
+  for (brightness = 255; brightness >= 0; brightness--) {
+    analogWrite(LED, brightness);
+    delay(20);
+  }    
+  
+  delay(250);
+
  
 }
