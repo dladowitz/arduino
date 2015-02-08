@@ -8,15 +8,15 @@
 #include <Console.h>
 
 int sensorPin = A0;    // select the input pin for the potentiometer
-int greenLedPin = 13;  // select the pin for the LED
-int blueLedPin =  6;
+//int greenLedPin = 13;  // select the pin for the LED
+//int blueLedPin =  6;
 int sensorValue = 0;  // variable to store the value coming from the sensor
-int brightness = 0;
+//int brightness = 0;
 
 void setup() {
   // declare the ledPin as an OUTPUT:
-  pinMode(greenLedPin, OUTPUT);
-  pinMode(blueLedPin, OUTPUT);
+//  pinMode(greenLedPin, OUTPUT);
+//  pinMode(blueLedPin, OUTPUT);
   Bridge.begin();
   Console.begin();
   
@@ -30,19 +30,20 @@ void setup() {
 void loop() {
   // read the value from the sensor:
   sensorValue = analogRead(sensorPin);
+  Console.println(sensorValue);
   
-  
-  if(sensorValue >= 500){
-    // turn the ledPin on
-    digitalWrite(greenLedPin, HIGH);
-
-    brightness = map(sensorValue, 500, 1023, 0, 255);
-    Console.println(brightness);
-    
-    analogWrite(blueLedPin, brightness);
-  } else {
-    // turn the ledPin off:
-    digitalWrite(greenLedPin, LOW);
-    analogWrite(blueLedPin, 0);
-  }  
+//  
+//  if(sensorValue >= 500){
+//    // turn the ledPin on
+//    digitalWrite(greenLedPin, HIGH);
+//
+//    brightness = map(sensorValue, 500, 1023, 0, 255);
+//    Console.println(brightness);
+//    
+//    analogWrite(blueLedPin, brightness);
+//  } else {
+//    // turn the ledPin off:
+//    digitalWrite(greenLedPin, LOW);
+//    analogWrite(blueLedPin, 0);
+//  }  
 }
