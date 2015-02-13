@@ -2,7 +2,7 @@
 //Sends http post command to server once voltage reaches a specific value
 #include <Bridge.h>
 #include <Process.h>
-#include <Console.h>x`
+#include <Console.h>
 int voltage = 0;
 int time = 0;
 
@@ -48,7 +48,7 @@ void postToApi() {
   String cmd = "curl http://10.0.1.91:3000/api/v1/weights --data \"scale_id=001&cat_id=30&weight_amount=12\"";
   p.runShellCommand(cmd);
   
-//  p.begin("curl"); seems to use https when posting data. Need to use runShellCommand instead.
+//  p.begin("curl"); seems to use https when posting data. Need to use runShellCommand i
 //  p.begin("curl");	                                                // Process that launch the "curl" command
 //  p.addParameter(" --data \"scale_id=001&cat_id=30&weight_amount=12\""); // Add the URL parameter to "curl"
 //  p.addParameter("http://10.0.1.91:3000/api/v1/weights");              // Add the URL parameter to "curl"

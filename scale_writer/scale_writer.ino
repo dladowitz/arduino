@@ -17,6 +17,7 @@
 
 #include <Bridge.h>
 #include <HttpClient.h>
+#include <Console.h>
 
 void setup() {
   // Bridge takes about two seconds to start up
@@ -27,7 +28,7 @@ void setup() {
   Bridge.begin();
   digitalWrite(13, HIGH);
 
-  Serial.begin(9600);
+  Console.begin();
 
 //  while (!Serial); // wait for a serial connection
 }
@@ -38,28 +39,28 @@ void loop() {
 
   // Make a HTTP request:
 
-    Serial.println("GET from server. \n");
-    client.get("http://10.0.1.91:3000/api/v1/weights");
+//    Serial.println("GET from server. \n");
+//    client.get("http://10.0.1.91:3000/api/v1/weights");
 //  client.get("http://arduino.cc/asciilogo.txt");
 
 
 // POST
-//  Process p;
-//  String cmd = "curl --data \"scale_id=001&cat_id=30&weight_amount=12\" http://10.0.1.91:3000/api/v1/weights";
+  Process p;
+  String cmd = "curl --data \"scale_id=001&cat_id=30&weight_amount=12\" http://10.0.1.91:3000/api/v1/weights";
 //
-//  Serial.println("POST to server. \n");
-//  p.runShellCommand(cmd);
+  Console.println("POST to server. \n");
+  p.runShellCommand(cmd);
 //  Console.println(cmd);
 //  p.close();
 
 
   // if there are incoming bytes available
   // from the server, read them and print them:
-  while (client.available()) {
-    char c = client.read();
-    Serial.print(c);
+  while (p.available()) {
+    char c = p.read();
+    Console.print(c);
   }
-  Serial.flush();
+  Console.flush();
 
   delay(5000);
 }
