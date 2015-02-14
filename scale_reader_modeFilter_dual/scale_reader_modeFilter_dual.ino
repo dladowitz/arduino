@@ -1,17 +1,27 @@
+#include <Bridge.h>
 #include <Console.h>
-#define NUM_READS 500
+#include <Process.h>
+
+#define NUM_READS        500
+#define CALIBRATION_MODE "OFF"
+#define API_ADDRESS      "http://www.littlecatlabs.co/api/v1/weights"
+
+//Need to not store this on github in production mode
+#define SCALE_ID          "70183"
+#define SCALE_PASSWORD    "littlecatlabs" 
 
 //Set communication method. Options are "Serial" for USB or "Console" for WIFI
 #define COMM_METHOD "Console"
 
 // 30lb weight = 29.4375
-//  8 books = 10.45625
+// 8 books     = 10.45625
 
 //46 Ohm Resistor & usb power to laptop on HealthOMeter
-float aReading = 689.0;
+float aReading = 722;
 float aLoad = 18.8125; // box and two waters
-float bReading = 443.0;
+float bReading = 473;
 float bLoad = 8.6875; // water A
+float load;
 
 float filteredResult = 0;
 
@@ -28,18 +38,18 @@ void setup() {
     Serial.begin(9600);
     digitalWrite(redLed, HIGH);
     while(!Serial);
+    printStringViaComm("You're connected to the Serial Monitor!!!!");
     digitalWrite(redLed, LOW);
   } else {
     Bridge.begin();
     Console.begin();
     digitalWrite(redLed, HIGH);  
     while(!Console);
+    printStringViaComm("You're connected to the Console!!!!");
     digitalWrite(redLed, LOW);    
   }
 
   flashLed(redLed, 20, 100);
-  
-  printStringViaComm("You're connected to the Serial Monitor!!!!");
 }
 
 void loop() {
@@ -89,17 +99,19 @@ void loop() {
     if (i == 10){
       printStringViaCommNl(" ");
       printStringViaCommNl("========== Weight Confirmed ==========");            
-      printReadings("Mode Reading", filteredResult);       
+      printReadings("Digital Voltage", filteredResult);       
       printStringViaCommNl("======================================");  
       printStringViaCommNl(" ");          
       
      flashLed(greenLed, 10, 100);
      analogWrite(greenLed, 255);
-     delay(3000);
      
-     sendWeightToAPI(filteredResult);
-     
-     waitForWeightRemoval(filteredResult);
+     // Send data and pause unless calibration mode is turned on
+     if (CALIBRATION_MODE == "OFF"){
+       delay(3000);
+       sendWeightToAPI(load);
+       waitForWeightRemoval(filteredResult);     
+     }
 
      analogWrite(greenLed, 0);          
     }  
@@ -109,13 +121,14 @@ void loop() {
 
 void printReadings(String readingLabel, float reading){
    // Calculate load based on A and B readings above
-  float load = ((bLoad - aLoad)/(bReading - aReading)) * (reading - aReading) + aLoad;   
+  load = ((bLoad - aLoad)/(bReading - aReading)) * (reading - aReading) + aLoad;   
   
   printStringViaComm(readingLabel);
   printStringViaComm(": ");
   printFloatViaComm(reading);    
-  printStringViaComm(" - Load: ");
-  printFloatViaCommNl(load);         
+  printStringViaComm(" - Weight: ");
+  printFloatViaComm(load);  
+  printStringViaCommNl(" lbs");
 }
 
 // From http://www.elcojacobs.com/eleminating-noise-from-sensor-readings-on-arduino-with-digital-filtering/
@@ -180,22 +193,55 @@ void fadeLed(int pinValue, int cycles, int delayInterval){
   }
 }
 
-void sendWeightToAPI(int filteredResult){
+void sendWeightToAPI(float weightToSend){
+  String weightParams;
+  weightParams += " --data \"scale_id=";
+  weightParams += SCALE_ID;
+  weightParams += "&scale_password=";
+  weightParams += SCALE_PASSWORD;
+  weightParams += "&weight_amount=";
+  weightParams += weightToSend;
+  weightParams += "\"";
+  
   printStringViaCommNl(" ");
   printStringViaCommNl("========== Sending Weight to API ==========");
-  printStringViaCommNl("Connecting...............");
-  printStringViaComm("...... sending ");
-  printFloatViaComm(filteredResult);  
-  printStringViaCommNl(" lbs to server........");  
-  fadeLed(blueLed, 4, 40);
-  // add code here for curl to server
+  printStringViaComm("Connecting to: ");
+  printStringViaCommNl(API_ADDRESS);  
+  fadeLed(blueLed, 1, 40);
+  
+  printStringViaComm("Sending ");
+  printFloatViaComm(weightToSend);  
+  printStringViaCommNl("lbs to server");  
+  Process p;
+  String cmd = "curl ";
+  cmd += API_ADDRESS;
+  cmd += weightParams;
+  printStringViaComm("API Call: ");
+  printStringViaCommNl(cmd);  
+  p.runShellCommand(cmd);
+  
+  fadeLed(blueLed, 1, 40);
+  
+  printStringViaComm("Server Response: ");
+  while (p.available()) {
+    char c = p.read();
+    printCharViaComm(c);  
+  }
+  printStringViaCommNl(" ");
+  
+  // Ensure the last bit of data is sent.
+  flushViaComm();    
   printStringViaCommNl("Data sent");  
+  fadeLed(blueLed, 1, 40);  
+
+  printStringViaCommNl("===========================================");  
+  printStringViaCommNl(" ");  
 }
 
 // Remove weight to reset scale
 void waitForWeightRemoval(int sentWeight){
   printStringViaCommNl(" ");
-  printStringViaCommNl("========== Reseting Scale ==========");
+  printStringViaCommNl("=========== Reseting Scale ===========");
   while(modeFilter() > 285){
     printStringViaCommNl("Remove weight to reset scale......");
     fadeLed(greenLed, 1, 100);
@@ -204,7 +250,8 @@ void waitForWeightRemoval(int sentWeight){
   printStringViaCommNl("========== Weight Removed. Scale Reseting ==========");  
 }
 
-// Used to choose serial or console for either Uno or Yun boards. Need many methods as not sure how to convert float to string or int
+// Used to choose serial or console for either Uno or Yun boards. 
+// Need to figure out a conversion strategy, too many methods being added that look the same.
 void printStringViaComm(String message){
   if(COMM_METHOD == "Console"){
       Console.print(message);
@@ -252,3 +299,28 @@ void printIntViaCommNl(int message){
       Serial.println(message);
   }
 }
+
+void printCharViaComm(char message){
+  if(COMM_METHOD == "Console"){
+      Console.print(message);
+  } else {
+      Serial.print(message);
+  }
+}
+
+void printCharViaCommNl(char message){
+  if(COMM_METHOD == "Console"){
+      Console.println(message);
+  } else {
+      Serial.println(message);
+  }
+}
+// Ensure the last bit of data is sent.
+void flushViaComm(){
+  if(COMM_METHOD == "Console"){
+      Console.flush();
+  } else {
+      Serial.flush();
+  }  
+}
+
