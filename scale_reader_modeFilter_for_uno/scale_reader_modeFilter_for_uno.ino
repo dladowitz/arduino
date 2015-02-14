@@ -1,5 +1,6 @@
 #include <Console.h>
 #define NUM_READS 500
+#define COMM_METHOD "Console"
 
 // 30lb weight = 29.4375
 //  8 books = 10.45625
@@ -21,30 +22,37 @@ void setup() {
   pinMode(3, OUTPUT);
   pinMode(5, OUTPUT);
   
-  Serial.begin(9600);
+  if(COMM_METHOD == "Serial"){
+    Serial.begin(9600);
+  } else {
+    Bridge.begin();
+    Console.begin();  
+  }
+
   flashLed(redLed, 20, 100);
   
-  Serial.println("You're connected to the Serial Monitor!!!!");
+  printStringViaComm("You're connected to the Serial Monitor!!!!");
 }
 
 void loop() {
   filteredResult = modeFilter();    
 
-  Serial.println(" ");
-  Serial.println("========== Add Weight To Scale ==========");   
+  printStringViaCommNl(" ");
+  printStringViaCommNl("========== Add Weight To Scale ==========");   
   
 //  Wait for more than .6lbs to be put on scale
   while(filteredResult < 285.0){
     fadeLed(greenLed, 1, 50);
-    Serial.println(" ");
-    Serial.println("waiting for weight.......");    
+    printStringViaCommNl(" ");
+    printStringViaCommNl("waiting for weight.......");
+    printStringViaCommNl(" ");
     
     filteredResult = modeFilter();    
   }
 
-  Serial.println(" ");
-  Serial.println("========== Stabilizing and Confirming Weight ==========");        
-  Serial.println(" ");   
+
+  printStringViaCommNl("========== Stabilizing and Confirming Weight ==========");       
+  printStringViaCommNl(" ");   
   
   // Wait for same result 10 times in a row. Otherwise break and start over.
   for(int i = 1; i <= 10; i++) {
@@ -52,30 +60,30 @@ void loop() {
     
     if(i == 1) {      
       filteredResult = modeFilter();
-      Serial.print(filteredResult);
-      Serial.print(" - Match: ");
-      Serial.println(i);       
+      printFloatViaComm(filteredResult);
+      printStringViaComm(" - Match: ");
+      printIntViaCommNl(i);       
     } else {
       if (filteredResult != modeFilter() ) {
         filteredResult = modeFilter();
-        Serial.println(" ");
-        Serial.println("========== Readings Don't Match. Starting Over ==========");        
-        Serial.println(" ");        
+        printStringViaCommNl(" ");
+        printStringViaCommNl("========== Readings Don't Match. Starting Over ==========");        
+        printStringViaCommNl(" ");        
         break; 
-      } else {
-        Serial.print(filteredResult);
-        Serial.print(" - Match: ");
-        Serial.println(i);  
+      } else {       
+        printFloatViaComm(filteredResult);        
+        printStringViaComm(" - Match: ");
+        printIntViaCommNl(i);  
       }        
     }
 
     // Only get here to print if same result 10 times in a row      
     if (i == 10){
-      Serial.println(" ");
-      Serial.println("========== Weight Confirmed ==========");            
+      printStringViaCommNl(" ");
+      printStringViaCommNl("========== Weight Confirmed ==========");            
       printReadings("Mode Reading", filteredResult);       
-      Serial.println("======================================");  
-      Serial.println(" ");          
+      printStringViaCommNl("======================================");  
+      printStringViaCommNl(" ");          
       
      flashLed(greenLed, 10, 100);
      analogWrite(greenLed, 255);
@@ -95,11 +103,11 @@ void printReadings(String readingLabel, float reading){
    // Calculate load based on A and B readings above
   float load = ((bLoad - aLoad)/(bReading - aReading)) * (reading - aReading) + aLoad;   
   
-  Serial.print(readingLabel);
-  Serial.print(": ");
-  Serial.print(reading,2);
-  Serial.print(" - Load: ");
-  Serial.println(load,2); 
+  printStringViaComm(readingLabel);
+  printStringViaComm(": ");
+  printFloatViaComm(reading);    
+  printStringViaComm(" - Load: ");
+  printFloatViaCommNl(load);         
 }
 
 // From http://www.elcojacobs.com/eleminating-noise-from-sensor-readings-on-arduino-with-digital-filtering/
@@ -165,23 +173,74 @@ void fadeLed(int pinValue, int cycles, int delayInterval){
 }
 
 void sendWeightToAPI(int filteredResult){
-  Serial.println(" ");
-  Serial.println("========== Sending Weight to API ==========");
-  Serial.println("Connecting...............");
-  Serial.println(filteredResult);  
+  printStringViaCommNl(" ");
+  printStringViaCommNl("========== Sending Weight to API ==========");
+  printStringViaCommNl("Connecting...............");
+  printStringViaComm("...... sending ");
+  printFloatViaComm(filteredResult);  
+  printStringViaCommNl(" lbs to server........");  
   fadeLed(blueLed, 4, 40);
   // add code here for curl to server
-  Serial.println("Data sent");  
+  printStringViaCommNl("Data sent");  
 }
 
 // Remove weight to reset scale
 void waitForWeightRemoval(int sentWeight){
-  Serial.println(" ");
-  Serial.println("========== Reseting Scale ==========");
+  printStringViaCommNl(" ");
+  printStringViaCommNl("========== Reseting Scale ==========");
   while(modeFilter() > 285){
-    Serial.println("Remove weight to reset scale......");
+    printStringViaCommNl("Remove weight to reset scale......");
     fadeLed(greenLed, 1, 100);
   }
-  Serial.println(" ");
-  Serial.println("========== Weight Removed. Scale Reseting ==========");  
+  printStringViaCommNl(" ");
+  printStringViaCommNl("========== Weight Removed. Scale Reseting ==========");  
+}
+
+// Used to choose serial or console for either Uno or Yun boards. Need many methods as not sure how to convert float to string or int
+void printStringViaComm(String message){
+  if(COMM_METHOD == "Console"){
+      Console.print(message);
+  } else {
+      Serial.print(message);
+  }
+}
+
+void printStringViaCommNl(String message){
+  if(COMM_METHOD == "Console"){
+      Console.println(message);
+  } else {
+      Serial.println(message);
+  }
+}
+
+void printFloatViaComm(float message){
+  if(COMM_METHOD == "Console"){
+      Console.print(message);
+  } else {
+      Serial.print(message);
+  }
+}
+
+void printFloatViaCommNl(float message){
+  if(COMM_METHOD == "Console"){
+      Console.println(message);
+  } else {
+      Serial.println(message);
+  }
+}
+
+void printIntViaComm(int message){
+  if(COMM_METHOD == "Console"){
+      Console.print(message);
+  } else {
+      Serial.print(message);
+  }
+}
+
+void printIntViaCommNl(int message){
+  if(COMM_METHOD == "Console"){
+      Console.println(message);
+  } else {
+      Serial.println(message);
+  }
 }
