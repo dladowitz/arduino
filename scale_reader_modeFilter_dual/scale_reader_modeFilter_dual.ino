@@ -3,44 +3,64 @@
 #include <Process.h>
 
 #define NUM_READS        500
+#define MATCH_NUMBER     8
 #define CALIBRATION_MODE "OFF"
 #define API_ADDRESS      "http://www.littlecatlabs.co/api/v1/weights"
 
 //Need to not store this on github in production mode
-#define SCALE_ID          "70183"
+#define SCALE_ID          "10577" // Aiko
+//#define SCALE_ID          "70183" // Dusty
+//#define SCALE_ID          "Debug" // Debug
 #define SCALE_PASSWORD    "littlecatlabs" 
 
-//Set communication method. Options are "Serial" for USB or "Console" for WIFI
-#define COMM_METHOD "Console"
+//Set communication method. Options are "Serial" for USB, "Console" for WIFI or "NONE"
+#define COMM_METHOD "Serial"
 
-// 30lb weight = 29.4375
-// 8 books     = 10.45625
+// ---- Known weights ----
+// 30lb weight       =  29.4375
+// 8 books           =  10.45625
+// Water A           =  8.6875
+// Box with 2 waters = 18.8125
+// ----------------------
 
-//46 Ohm Resistor & usb power to laptop on HealthOMeter
-float aReading = 722;
-float aLoad = 18.8125; // box and two waters
-float bReading = 473;
-float bLoad = 8.6875; // water A
+//46 Ohm Resistor & usb power pack on HealthOMeter
+//float aReading = 722;
+//float aLoad = 18.8125; // box and two waters
+//float bReading = 473;
+//float bLoad = 8.6875; // water A
+//float load;
+
+float aReading = 816;
+float aLoad = 29.965; // 30lb dumbell
+float bReading = 516;
+float bLoad = 10.456; // 8 books
 float load;
 
 float filteredResult = 0;
 
 int redLed = 13;
-int blueLed = 3;
-int greenLed = 5;
+int blueLed = 5;
+int greenLed = 3;
+int yellowLed = 6;
 
 void setup() {
   pinMode(13, OUTPUT);
   pinMode(3, OUTPUT);
   pinMode(5, OUTPUT);
+  pinMode(6, OUTPUT);
+  
+  digitalWrite(greenLed, HIGH);
   
   if(COMM_METHOD == "Serial"){
+    Bridge.begin();
     Serial.begin(9600);
     digitalWrite(redLed, HIGH);
-    while(!Serial);
+    while(!Serial){
+      printStringViaCommNl("Waiting for Serial Connection......");
+    };
     printStringViaComm("You're connected to the Serial Monitor!!!!");
     digitalWrite(redLed, LOW);
-  } else {
+  } else if (COMM_METHOD == "Console") {
     Bridge.begin();
     Console.begin();
     digitalWrite(redLed, HIGH);  
@@ -52,13 +72,13 @@ void setup() {
   flashLed(redLed, 20, 100);
 }
 
-void loop() {
-  filteredResult = modeFilter();    
-
+void loop() {    
   printStringViaCommNl(" ");
   printStringViaCommNl("========== Add Weight To Scale ==========");   
   
-//  Wait for more than .6lbs to be put on scale
+  filteredResult = modeFilter();
+
+  // Wait for more than .5lbs to be put on scale
   while(filteredResult < 285.0){
     fadeLed(redLed, 1, 50);
     printStringViaCommNl(" ");
@@ -72,8 +92,9 @@ void loop() {
   printStringViaCommNl("========== Stabilizing and Confirming Weight ==========");       
   printStringViaCommNl(" ");   
   
-  // Wait for same result 10 times in a row. Otherwise break and start over.
-  for(int i = 1; i <= 10; i++) {
+  // Wait for same result MATCH_NUMBER times in a row. Otherwise break and start over.
+  // Should make this into a method
+  for(int i = 1; i <= MATCH_NUMBER; i++) {
     flashLed(redLed, 1, 100);
     
     if(i == 1) {      
@@ -82,29 +103,33 @@ void loop() {
       printStringViaComm(" - Match: ");
       printIntViaCommNl(i);       
     } else {
-      if (filteredResult != modeFilter() ) {
-        filteredResult = modeFilter();
+      float newFilteredResult = modeFilter();        
+      
+      if (newFilteredResult != filteredResult ) {
+        printFloatViaComm(newFilteredResult);
+        printStringViaCommNl(" - BAD MATCH");        
         printStringViaCommNl(" ");
-        printStringViaCommNl("========== Readings Don't Match. Starting Over ==========");        
-        printStringViaCommNl(" ");        
+        printStringViaCommNl("========== Starting Over ==========");        
+        printStringViaCommNl(" ");
+        filteredResult = newFilteredResult;        
         break; 
       } else {       
-        printFloatViaComm(filteredResult);        
+        printFloatViaComm(newFilteredResult);        
         printStringViaComm(" - Match: ");
         printIntViaCommNl(i);  
       }        
     }
 
-    // Only get here to print if same result 10 times in a row      
-    if (i == 10){
+    // Only get here to print if same result show up multiple times     
+    if (i == MATCH_NUMBER){
       printStringViaCommNl(" ");
       printStringViaCommNl("========== Weight Confirmed ==========");            
       printReadings("Digital Voltage", filteredResult);       
       printStringViaCommNl("======================================");  
       printStringViaCommNl(" ");          
       
-     flashLed(greenLed, 10, 100);
-     analogWrite(greenLed, 255);
+     flashLed(yellowLed, 10, 100);
+     analogWrite(yellowLed, 255);
      
      // Send data and pause unless calibration mode is turned on
      if (CALIBRATION_MODE == "OFF"){
@@ -113,7 +138,7 @@ void loop() {
        waitForWeightRemoval(filteredResult);     
      }
 
-     analogWrite(greenLed, 0);          
+     analogWrite(yellowLed, 0);          
     }  
   }    
 }
@@ -135,7 +160,7 @@ void printReadings(String readingLabel, float reading){
 float modeFilter(){
    // read multiple values and sort them to take the mode
    int sortedValues[NUM_READS];
-   for(int i=0;i<NUM_READS;i++){
+   for(int i = 0; i < NUM_READS; i++){
      int value = analogRead(0);
      int j;
      if(value<sortedValues[0] || i==0){
@@ -244,7 +269,7 @@ void waitForWeightRemoval(int sentWeight){
   printStringViaCommNl("=========== Reseting Scale ===========");
   while(modeFilter() > 285){
     printStringViaCommNl("Remove weight to reset scale......");
-    fadeLed(greenLed, 1, 100);
+    fadeLed(yellowLed, 1, 50);
   }
   printStringViaCommNl(" ");
   printStringViaCommNl("========== Weight Removed. Scale Reseting ==========");  
@@ -255,72 +280,90 @@ void waitForWeightRemoval(int sentWeight){
 void printStringViaComm(String message){
   if(COMM_METHOD == "Console"){
       Console.print(message);
-  } else {
+  } else if(COMM_METHOD == "Serial") {
       Serial.print(message);
+  } else {
+    // print nothing
   }
 }
 
 void printStringViaCommNl(String message){
   if(COMM_METHOD == "Console"){
       Console.println(message);
-  } else {
+  } else if(COMM_METHOD == "Serial") {
       Serial.println(message);
+  } else {
+    // print nothing
   }
 }
 
 void printFloatViaComm(float message){
   if(COMM_METHOD == "Console"){
       Console.print(message);
-  } else {
+  } else if(COMM_METHOD == "Serial") {
       Serial.print(message);
+  } else {
+    // print nothing
   }
 }
 
 void printFloatViaCommNl(float message){
   if(COMM_METHOD == "Console"){
       Console.println(message);
-  } else {
+  } else if(COMM_METHOD == "Serial") {
       Serial.println(message);
+  } else {
+    // print nothing
   }
 }
 
 void printIntViaComm(int message){
   if(COMM_METHOD == "Console"){
       Console.print(message);
-  } else {
+  } else if(COMM_METHOD == "Serial") {
       Serial.print(message);
+  } else {
+    // print nothing
   }
 }
 
 void printIntViaCommNl(int message){
   if(COMM_METHOD == "Console"){
       Console.println(message);
-  } else {
+  } else if(COMM_METHOD == "Serial") {
       Serial.println(message);
+  } else {
+    // print nothing
   }
 }
 
 void printCharViaComm(char message){
   if(COMM_METHOD == "Console"){
       Console.print(message);
-  } else {
+  } else if(COMM_METHOD == "Serial") {
       Serial.print(message);
+  } else {
+    // print nothing
   }
 }
 
 void printCharViaCommNl(char message){
   if(COMM_METHOD == "Console"){
       Console.println(message);
-  } else {
+  } else if(COMM_METHOD == "Serial") {
       Serial.println(message);
+  } else {
+    // print nothing
   }
 }
 // Ensure the last bit of data is sent.
 void flushViaComm(){
   if(COMM_METHOD == "Console"){
       Console.flush();
-  } else {
+  } else if(COMM_METHOD == "Serial") {
       Serial.flush();
-  }  
+  } else {
+    // flush nothing
+  }
 }
 
