@@ -2,41 +2,44 @@
 #include <Console.h>
 #include <Process.h>
 
+// --------------------------------- Modes  -------------------------------------
+#define COMM_METHOD     "Console"
 #define NUM_READS        500
-#define MATCH_NUMBER     8
-#define CALIBRATION_MODE "OFF"
+#define MATCH_NUMBER     10
+#define CALIBRATION_MODE "ON"
+#define STABILIZE_MODE   "ON"
+#define STABILIZE_RANGE  2
 #define API_ADDRESS      "http://www.littlecatlabs.co/api/v1/weights"
-
-//Need to not store this on github in production mode
-#define SCALE_ID          "10577" // Aiko
+//#define SCALE_ID          "10577" // Aiko 
 //#define SCALE_ID          "70183" // Dusty
-//#define SCALE_ID          "Debug" // Debug
+#define SCALE_ID          "Debug" // Debug
 #define SCALE_PASSWORD    "littlecatlabs" 
-
-//Set communication method. Options are "Serial" for USB, "Console" for WIFI or "NONE"
-#define COMM_METHOD "Serial"
+// -----------------------------------------------------------------------------
 
 // ---- Known weights ----
 // 30lb weight       =  29.4375
 // 8 books           =  10.45625
 // Water A           =  8.6875
-// Box with 2 waters = 18.8125
+// Water B           =  8.7812
+// Box with 2 waters =  18.8125
+// Printer           =  16.875
 // ----------------------
 
 //46 Ohm Resistor & usb power pack on HealthOMeter
-//float aReading = 722;
-//float aLoad = 18.8125; // box and two waters
-//float bReading = 473;
-//float bLoad = 8.6875; // water A
-//float load;
+float aReading = 717;
+float aLoad = 18.8125; // box and two waters
+float bReading = 469;
+float bLoad = 8.6875; // water A
 
-float aReading = 816;
-float aLoad = 29.965; // 30lb dumbell
-float bReading = 516;
-float bLoad = 10.456; // 8 books
+//float aReading = 410;
+//float aLoad = 4; // 30lb dumbell
+//float bReading = 334;
+//float bLoad = 2; // 8 books
+
+
 float load;
-
 float filteredResult = 0;
+float stabilizationTotal = 0;
 
 int redLed = 13;
 int blueLed = 5;
@@ -54,22 +57,48 @@ void setup() {
   if(COMM_METHOD == "Serial"){
     Bridge.begin();
     Serial.begin(9600);
-    digitalWrite(redLed, HIGH);
+    digitalWrite(blueLed, HIGH);
     while(!Serial){
       printStringViaCommNl("Waiting for Serial Connection......");
     };
     printStringViaComm("You're connected to the Serial Monitor!!!!");
-    digitalWrite(redLed, LOW);
+    digitalWrite(blueLed, LOW);
   } else if (COMM_METHOD == "Console") {
     Bridge.begin();
     Console.begin();
-    digitalWrite(redLed, HIGH);  
+    digitalWrite(yellowLed, HIGH);  
     while(!Console);
     printStringViaComm("You're connected to the Console!!!!");
-    digitalWrite(redLed, LOW);    
+    digitalWrite(yellowLed, LOW);    
+  } else if(COMM_METHOD == "None") {
+    digitalWrite(redLed, HIGH); 
+    Bridge.begin();
+    digitalWrite(redLed, LOW);
   }
-
+  
+  // 20 times flash indicates we've made it through Comm and Bridge Setup
   flashLed(redLed, 20, 100);
+  
+  printStringViaCommNl(" ");  
+  printStringViaCommNl("========== Modes and Settings ==========");  
+  printStringViaComm("Comm Method:         ");
+  printStringViaCommNl(COMM_METHOD);  
+  printStringViaComm("Number of Reads:     ");
+  printIntViaCommNl(NUM_READS);  
+  printStringViaComm("Match Number:        ");  
+  printIntViaCommNl(MATCH_NUMBER);  
+  printStringViaComm("Calibration Mode:    ");  
+  printStringViaCommNl(CALIBRATION_MODE);    
+  printStringViaComm("Stabilization Mode:  ");  
+  printStringViaCommNl(STABILIZE_MODE);    
+  printStringViaComm("Stabilization Range: ");  
+  printStringViaCommNl(STABILIZE_MODE); 
+  printStringViaComm("Scale Id:            ");  
+  printStringViaCommNl(SCALE_ID);    
+  printStringViaComm("Server Address:      ");  
+  printStringViaCommNl(API_ADDRESS);  
+  printStringViaCommNl("========================================");  
+  printStringViaCommNl(" ");  
 }
 
 void loop() {    
@@ -100,30 +129,59 @@ void loop() {
     if(i == 1) {      
       filteredResult = modeFilter();
       printFloatViaComm(filteredResult);
-      printStringViaComm(" - Match: ");
-      printIntViaCommNl(i);       
+      printStringViaComm(" - Initial: ");
+      printIntViaCommNl(i);   
+      if(STABILIZE_MODE == "ON"){
+        stabilizationTotal += filteredResult;
+      }  
     } else {
       float newFilteredResult = modeFilter();        
       
-      if (newFilteredResult != filteredResult ) {
-        printFloatViaComm(newFilteredResult);
-        printStringViaCommNl(" - BAD MATCH");        
-        printStringViaCommNl(" ");
-        printStringViaCommNl("========== Starting Over ==========");        
-        printStringViaCommNl(" ");
-        filteredResult = newFilteredResult;        
-        break; 
-      } else {       
-        printFloatViaComm(newFilteredResult);        
-        printStringViaComm(" - Match: ");
-        printIntViaCommNl(i);  
-      }        
+      // Matching Mode
+      if(STABILIZE_MODE == "OFF"){
+        if (newFilteredResult != filteredResult ) {
+          printFloatViaComm(newFilteredResult);
+          printStringViaCommNl(" - BAD MATCH");        
+          printStringViaCommNl(" ");
+          printStringViaCommNl("========== Starting Over ==========");        
+          printStringViaCommNl(" ");
+          filteredResult = newFilteredResult;        
+          break; 
+        } else {       
+          printFloatViaComm(newFilteredResult);        
+          printStringViaComm(" - Match: ");
+          printIntViaCommNl(i);  
+        }  
+      //     
+      } else if(STABILIZE_MODE == "ON"){
+        if (newFilteredResult < filteredResult - STABILIZE_RANGE || newFilteredResult > filteredResult + STABILIZE_RANGE) {
+          printFloatViaComm(newFilteredResult);
+          printStringViaCommNl(" - Outside of Stablize Range");        
+          printStringViaCommNl(" ");
+          printStringViaCommNl("========== Starting Over ==========");        
+          printStringViaCommNl(" ");
+          filteredResult = newFilteredResult;  
+          stabilizationTotal = 0;
+          break; 
+        } else {       
+          printFloatViaComm(newFilteredResult);        
+          printStringViaComm(" - In Range: ");
+          printIntViaCommNl(i);  
+          stabilizationTotal += newFilteredResult;
+        }  
+      }
     }
 
     // Only get here to print if same result show up multiple times     
     if (i == MATCH_NUMBER){
+      if(STABILIZE_MODE == "ON"){
+        filteredResult = (stabilizationTotal/MATCH_NUMBER);
+        // Reset for next weight
+        stabilizationTotal = 0;
+      }
+      
       printStringViaCommNl(" ");
-      printStringViaCommNl("========== Weight Confirmed ==========");            
+      printStringViaCommNl("========== Weight Confirmed ==========");          
       printReadings("Digital Voltage", filteredResult);       
       printStringViaCommNl("======================================");  
       printStringViaCommNl(" ");          
@@ -274,6 +332,7 @@ void waitForWeightRemoval(int sentWeight){
   printStringViaCommNl(" ");
   printStringViaCommNl("========== Weight Removed. Scale Reseting ==========");  
 }
+
 
 // Used to choose serial or console for either Uno or Yun boards. 
 // Need to figure out a conversion strategy, too many methods being added that look the same.
