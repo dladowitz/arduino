@@ -3,16 +3,16 @@
 #include <Process.h>
 
 // --------------------------------- Modes  -------------------------------------
-#define COMM_METHOD     "Console"
-#define NUM_READS        500
-#define MATCH_NUMBER     10
-#define CALIBRATION_MODE "ON"
+#define COMM_METHOD     "None"
+#define NUM_READS        450
+#define MATCH_NUMBER     8
+#define CALIBRATION_MODE "OFF"
 #define STABILIZE_MODE   "ON"
-#define STABILIZE_RANGE  2
+#define STABILIZE_RANGE  15
 #define API_ADDRESS      "http://www.littlecatlabs.co/api/v1/weights"
-//#define SCALE_ID          "10577" // Aiko 
+#define SCALE_ID          "10577" // Aiko 
 //#define SCALE_ID          "70183" // Dusty
-#define SCALE_ID          "Debug" // Debug
+//#define SCALE_ID          "Debug" // Debug
 #define SCALE_PASSWORD    "littlecatlabs" 
 // -----------------------------------------------------------------------------
 
@@ -26,9 +26,9 @@
 // ----------------------
 
 //46 Ohm Resistor & usb power pack on HealthOMeter
-float aReading = 717;
-float aLoad = 18.8125; // box and two waters
-float bReading = 469;
+float aReading = 567;
+float aLoad = 13.60; // box and two waters
+float bReading = 448;
 float bLoad = 8.6875; // water A
 
 //float aReading = 410;
