@@ -6,6 +6,9 @@ int sensorPin = 1;    // select the input pin for the potentiometer, analog 1 on
 int ledPin = 1;      // select the pin for the LED, GEMMA has one attached to D1
 int sensorValue = 0;  // variable to store the value coming from the sensor
 float brightness = 0;
+int random_num = 0;
+String color = "white";
+
 
 // Parameter 1 = number of pixels in strip
 // Parameter 2 = pin number (most are valid)
@@ -14,13 +17,30 @@ float brightness = 0;
 //   NEO_KHZ400  400 KHz (classic 'v1' (not v2) FLORA pixels, WS2811 drivers)
 //   NEO_GRB     Pixels are wired for GRB bitstream (most NeoPixel products)
 //   NEO_RGB     Pixels are wired for RGB bitstream (v1 FLORA pixels, not v2)
-Adafruit_NeoPixel strip = Adafruit_NeoPixel(2, ledPin, NEO_GRB + NEO_KHZ800);
+Adafruit_NeoPixel strip = Adafruit_NeoPixel(4, ledPin, NEO_GRB + NEO_KHZ800);
 
 void setup() {
   strip.begin();
   strip.show(); // Initialize all pixels to 'off'
+//  randomSeed(analogRead(sensorPin));
+//  random_num = random(1, 6); // Set up random color
+//  delay(1000);
+  
+  sensorValue = analogRead(sensorPin); 
+  if (sensorValue > 900){
+    color = "purple";
+  } else if (sensorValue > 700) {
+    color = "teal";
+  } else if (sensorValue > 500) {
+    color = "orange";
+  } else if (sensorValue > 300) {
+    color = "light green";
+  } else if (sensorValue > 100) {
+    color = "red";
+  } else {
+    color = "white";
+  }
 }
-
 void loop() {
   
   // read the value from the sensor:
@@ -28,7 +48,20 @@ void loop() {
   brightness = sensorValue / 4;
 
 
-  colorWipe(strip.Color(brightness, 0, brightness), 50);
+  if (color == "purple"){
+    colorWipe(strip.Color(brightness, 0, brightness), 50);
+  } else if (color == "light green"){
+    colorWipe(strip.Color(brightness / 2, brightness, 0), 50);
+  }else if (color == "teal"){
+    colorWipe(strip.Color(0, brightness, brightness), 50);
+  }else if (color == "orange"){
+    colorWipe(strip.Color(brightness, brightness/2, 0), 50);
+  } else if (color == "red"){
+    colorWipe(strip.Color(brightness, 0, 0), 50);
+  } else {
+    colorWipe(strip.Color(brightness, brightness, brightness), 50);
+  }
+  
   
   delay(1000);
 }
